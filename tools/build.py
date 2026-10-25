@@ -43,10 +43,15 @@ def font_cells(chars):
     return {c: free[i] for i, c in enumerate(need)}
 
 
+OPEN_RIGHT = '('
+
+
 def draw_font(d, fo, cmap):
     fnt = bdf.Font(GALMURI)
     for ch, code in cmap.items():
         pts, _ = fnt.draw(ch)
+        if ch in OPEN_RIGHT and pts:                   # 여는 괄호는 칸 오른쪽(한글 잉크 끝 11열)에 붙여 뒤 글자와 띄어 보이지 않게(2026-10-25 «흉갑( 철판» 지적)
+            k = 10 - max(x for x, y in pts); pts = [(x + k, y) for x, y in pts]
         rows = [0] * 12
         for x, y in pts:
             yy, xx = y - 3, x + 1                      # PoC 실기 위치(갈무리11 윗선 3 → 칸 0행, 왼쪽 1칸)
