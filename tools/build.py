@@ -15,7 +15,7 @@ r"""본 빌드 (2026-10-25) — 번역 적재기 결과(work/tr/places.tsv) → 
      고정 자리로 옮김(빌드마다 같은 LBA). 늘어난 섹터만큼 CDDA1(트랙 2 가리킴)·PVD 볼륨 크기도. 바뀐 섹터만 EDC/ECC 새로."""
 import collections, os, shutil, struct, sys
 sys.path.insert(0, os.path.dirname(__file__))
-import ad2, bdf, cdmode1, gbcode as G, load_tr as L
+import ad2, bdf, cdmode1, gbcode as G, hud_tan, load_tr as L
 from iso9660 import Iso
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,8 +32,8 @@ GUN_LBA, VOP = 99, '/VOICE_OP.AD2'
 
 # ───────── ① 글꼴 ─────────
 # 게임이 글자 코드를 직접 찍는 고정 글자(문자열 아님 — 추출 대상 아님): 원래 한자 칸에 한글을 그대로 그림, 이 칸은 다른 한글에 안 줌
-#   弾(0x8CA1) = 화면 위 HUD «弾 ---/---»(2026-10-25 실기 스샷)
-FIXED = {0x8CA1: '탄'}
+#   (2026-10-25 «HUD 弾 = 0x8CA1» 은 오진이었음 — HUD 는 반쪽 칸 0x848D·0x848E, tools/hud_tan.py)
+FIXED = {}
 
 
 def font_cells(chars):
@@ -241,7 +241,8 @@ def main(argv):
     cmap = font_cells(chars)
     fo, fs = blk[FONT_BLK]
     draw_font(d, fo, cmap)
-    draw_font(d, fo, {ch: code for code, ch in FIXED.items()})          # 고정 글자(HUD 弾 → 탄)
+    draw_font(d, fo, {ch: code for code, ch in FIXED.items()})          # 고정 글자
+    hud_tan.patch(d, fo)                                                # HUD «弾 ---/---» 반쪽 두 칸 → 손그림 «탄»
     new, nref = patch_blocks(d, blk, star, one, cmap)
     nchk = check_blocks(orig, blk, new, star, one, cmap)
     # ③ GUN.AD2 다시 잇기

@@ -159,7 +159,7 @@ def orig_ends_line(src_it, W, col0):
     return cu.col >= W
 
 
-def layout(tr, src, W, col0, quote0, ocol0=0, pl0=1, join_next=False, wsp=0, soft_in=False, next_cont=False):
+def layout(tr, src, W, col0, quote0, ocol0=0, pl0=1, join_next=False, wsp=0, soft_in=False, next_cont=False, join_sp=True):
     """번역 한 문장을 창 폭 W 에 맞춰 {n} 넣기 → (항목[], 막을 것[], 끝 쪽 줄 수)
        쪽(▼ 사이)이 PAGE 줄을 넘으면 줄 끝에 ▼ 를 더 넣어 쪽을 나눔(번역을 깎지 않음) — 쪽 마지막 줄은 ▼ 자리 1칸 비움
        ★이어 흘리기(2026-10-25 실기 «아기가»·«있으면» 한 낱말 줄): 원문 조각이 «꽉 찬 줄 자동 넘김»으로 끝나고 다음 조각이 들여쓰기(　)로
@@ -201,7 +201,9 @@ def layout(tr, src, W, col0, quote0, ocol0=0, pl0=1, join_next=False, wsp=0, sof
             w = sum(cells(x) for x in it)
             if w > lim: bad.append('특수 배치(엔딩 등 가운데 맞춤) 줄이 같은 화면 원문 가장 넓은 줄보다 김 %d>%d칸' % (w, lim))
             emit(it); continue
-        ind = [('c', SPACE)] * max(1, min(lead_src, 4))            # 들여쓰기: 원문 첫머리 공백 수(겹 괄호 2칸 등)
+        ob = 0                                                      # 첫 조각이 「（ 처럼 겹 괄호로 열면 이어지는 줄은 그 수만큼(원문 «　　だな）」» 꼴)
+        while hi == 0 and lead_src == 0 and ob < len(it) and it[ob][0] == 'c' and it[ob][1] in OPEN + '(': ob += 1
+        ind = [('c', SPACE)] * max(1, min(lead_src or ob, 4))      # 들여쓰기: 원문 첫머리 공백 수(겹 괄호 2칸 등)
         if st['col'] == 0:
             if hi == 0 and lead_src >= 1: body = ind + body
             elif hi > 0 and (st['quote'] or lead): body = ind + body
@@ -219,7 +221,7 @@ def layout(tr, src, W, col0, quote0, ocol0=0, pl0=1, join_next=False, wsp=0, sof
             glue = all(x[0] in ('w', 'x') for x in ck) or (ck[0][0] == 'c' and ck[0][1] in PUNCT and ck[0][1] != '・')
             if merged and not merged[-1][1] and glue: merged[-1] = (merged[-1][0] + ck, sp)   # 닫는 괄호·부호·▼ 는 앞 낱말에 붙임
             else: merged.append((ck, sp))
-        pend_space = bool(soft_in and hi == 0 and st['col'] > 0)
+        pend_space = bool(soft_in and hi == 0 and st['col'] > 0 and join_sp)   # 앞이 부호로 끝났거나 낱말 한가운데서 갈렸으면 붙여 이음
         for ck, sp in merged:
             w = sum(cells(x) for x in ck)
             if st['col'] > 0 and st['col'] + w + (1 if pend_space else 0) > width():
@@ -374,6 +376,12 @@ def fake(src, k=1.0):
 
 
 # ───────── 본체 ─────────
+GLUE = set()                                                        # data/붙여잇기.tsv — 낱말 한가운데서 갈린 조각(않{n}으니까), tools/join_check.py 가 만듦
+if os.path.exists(os.path.join(ROOT, 'data', '붙여잇기.tsv')):
+    GLUE = {tuple(l.split('\t')[:2]) for l in open(os.path.join(ROOT, 'data', '붙여잇기.tsv'), encoding='utf-8-sig').read().split('\n')[1:] if l.strip()}
+JOINS = []                                                          # 이어 흘린 자리(앞 번호, 뒤 번호, 앞 번역, 뒤 번역, 위치) — work/tr/joins.tsv
+
+
 def main(argv):
     banner()
     src, locs = load_src()
@@ -403,6 +411,7 @@ def main(argv):
     lists = {}; ref_var = {}                                       # (블록, 위치) → 항목[] / (블록, 참조 위치) → 항목[]
     for ch, pl in by_chain.items():
         cu_o = cu_k = None; prev = None; kmax = (0, None, 0, 0); omax = 0; last_soft = False
+        nest = 0; last_n = None                                     # 원문 괄호 깊이(「『（) — 겹 괄호 안 이어지는 줄은 들여쓰기 2칸
         wsp = 0                                                     # 이 사슬 원문 가장 넓은 줄(가운데 맞춤 화면 폭 기준)
         for bi, off, W, rp in pl:
             if W is None: continue
@@ -424,16 +433,29 @@ def main(argv):
                 nx = pl[k_ + 1] if k_ + 1 < len(pl) else None
                 nxs = X.read_str(d[BLK[nx[0]][0]:BLK[nx[0]][0] + BLK[nx[0]][1]], nx[1])[0] if nx else ''
                 tok_only = bool(nxs) and TOK.sub('', nxs).strip(SPACE) == '' and '{w}' in nxs
-                next_cont = bool(nxs) and nxs.startswith(SPACE) and not tok_only and not nxs.startswith(SPACE * 2)
+                for c in TOK.sub('', s):
+                    if c in '「『（': nest += 1
+                    elif c in '」』）': nest = max(0, nest - 1)
+                L = len(nxs) - len(nxs.lstrip(SPACE))
+                next_cont = bool(nxs) and 1 <= L <= max(1, nest) and not tok_only
+                join_sp = True
+                if last_soft:
+                    pt = re.sub(r'(\{[^{}]*\})+$', '', clean[last_n]).rstrip(SPACE)
+                    join_sp = not (pt[-1:] in PUNCT or (last_n, n) in GLUE)
                 it, bad, _, soft = layout(clean[n], s, W, cu_k.col if cu_k.col < W else 0, cu_k.quote,
                                     cu_o.col if cu_o.col < W else 0, cu_k.lines + (cu_k.col >= W), tok_only, wsp,
-                                    soft_in=last_soft, next_cont=next_cont)
-                last_soft = soft
+                                    soft_in=last_soft, next_cont=next_cont, join_sp=join_sp)
+                if last_soft: JOINS.append((last_n, n, clean[last_n], clean[n], '%d:%X' % (bi, off)))
+                last_soft = soft; last_n = n
                 probs += [(n, tr[n][1], m + ' @%d:%X' % (bi, off)) for m in bad]
                 if (bi, off) not in lists: lists[(bi, off)] = it; prev = it
                 elif lists[(bi, off)] == it: prev = lists[(bi, off)]
                 else: ref_var[(bi, rp)] = it; prev = it
-            else: it = s_it; prev = None; last_soft = False
+            else:
+                it = s_it; prev = None; last_soft = False
+                for c in TOK.sub('', s):
+                    if c in '「『（': nest += 1
+                    elif c in '」』）': nest = max(0, nest - 1)
             cu_o.feed(s_it); cu_k.feed(it)
             pk = max(cu_k.maxpage, cu_k.lines - (cu_k.col == 0))      # {n} 뒤 빈 줄은 아직 안 씀
             if pk > kmax[0]: kmax = (pk, n, bi, off)
@@ -456,6 +478,9 @@ def main(argv):
         final[(bi, off)] = unitems(it)
     # 보고
     os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, 'joins.tsv'), 'w', encoding='utf-8-sig', newline='\n') as w:
+        w.write('앞\t뒤\t앞 번역\t뒤 번역\t위치\n')
+        for j in JOINS: w.write('\t'.join(j) + '\n')
     rep = os.path.join(OUT, 'report.tsv')
     with open(rep, 'w', encoding='utf-8-sig', newline='\n') as w:
         w.write('구분\t번호\t위치\t내용\t원문\t번역\n')
