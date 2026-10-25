@@ -441,7 +441,8 @@ def main(argv):
                 join_sp = True
                 if last_soft:
                     pt = re.sub(r'(\{[^{}]*\})+$', '', clean[last_n]).rstrip(SPACE)
-                    join_sp = not (pt[-1:] in PUNCT or (last_n, n) in GLUE)
+                    nt = TOK.sub('', clean[n]).lstrip(SPACE)
+                    join_sp = not (pt[-1:] in PUNCT or nt[:1] in PUNCT or (last_n, n) in GLUE)   # «…」»·«…요즘은» 처럼 부호로 시작하는 조각도 앞 낱말에 붙임
                 it, bad, _, soft = layout(clean[n], s, W, cu_k.col if cu_k.col < W else 0, cu_k.quote,
                                     cu_o.col if cu_o.col < W else 0, cu_k.lines + (cu_k.col >= W), tok_only, wsp,
                                     soft_in=last_soft, next_cont=next_cont, join_sp=join_sp)
