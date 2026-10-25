@@ -2,7 +2,7 @@
 
 배포: [Releases](../../releases) 의 `GunBlazeS_KR_v0.9.zip` — 트랙 1 xdelta + 적용 bat + readme.
 
-- 원본 트랙 1 md5 `4546FF5145F6699E5959EFFB993821AB` → 패치 후 `5F12F93D641ECE6EF3EA4CBF8D9A2C6F`
+- 원본 트랙 1 md5 `4546FF5145F6699E5959EFFB993821AB` → 패치 후 `97DD5A73B08A821B00A42DF5A1EFCD8F`
 - 대사 전체·메뉴·아이템·전투·장소·저장 문구 한글화, 문장부호 한글식, HUD 탄약 글자.
 
 ## 빌드
