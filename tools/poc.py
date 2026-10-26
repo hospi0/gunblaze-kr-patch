@@ -11,7 +11,7 @@ import ad2, bdf, cdmode1, gbcode as G
 from iso9660 import Iso
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ROM = r'C:\claude\roms\ss\GunBlaze-S (Japan)'
+ROM = r'D:\hospi\My Documents\한글패치\SS\ss\GunBlaze-S (Japan)'
 NAME = 'GunBlaze-S (Japan)'
 OUT = os.path.join(ROOT, 'work', 'build', 'poc')
 GALMURI = r'C:\claude\utils\font\Galmuri-v2.40.3\Galmuri11.bdf'

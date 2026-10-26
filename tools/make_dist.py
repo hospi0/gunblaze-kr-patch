@@ -9,7 +9,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 
 VER = 'v0.9'
 XDELTA = r'C:\claude\utils\xdelta.exe'
-SRC = r'C:\claude\roms\ss\GunBlaze-S (Japan)'
+SRC = r'D:\hospi\My Documents\한글패치\SS\ss\GunBlaze-S (Japan)'
 OUT = os.path.join(ROOT, 'work', 'build', 'kr')
 ROM = 'GunBlaze-S (Japan)'
 NAME = 'GunBlazeS_KR_' + VER
